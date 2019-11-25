@@ -6,6 +6,9 @@ parallel.
 
 At present, the accuracy of the paper cannot be achieved. And i borrowed code from [deep-text-recognition-benchmark](https://github.com/clovaai/deep-text-recognition-benchmark)
 
+**model**
+<img src='./demo_image/model.png'> 
+
 **Feature**
 1. Output image string once not like the seqtoseq model
 
