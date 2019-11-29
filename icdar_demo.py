@@ -1,5 +1,7 @@
 import string
 import argparse
+import json
+import os
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -8,6 +10,8 @@ import torch.utils.data
 from utils import CTCLabelConverter, AttnLabelConverter, TransformerConverter
 from dataset import RawDataset, AlignCollate
 from model import Model
+import matplotlib.pyplot as plt
+from PIL import Image
 
 
 def demo(opt):
@@ -45,9 +49,15 @@ def demo(opt):
         num_workers=int(opt.workers),
         collate_fn=AlignCollate_demo, pin_memory=True)
 
+    # mkdir result
+    experiment_name = os.path.join('./result', opt.image_folder.split('/')[-2])
+    if not os.path.exists(experiment_name):
+        os.makedirs(experiment_name)
+    result = {}
+
     # predict
     model.eval()
-    for image_tensors, image_path_list in demo_loader:
+    for idx, (image_tensors, image_path_list) in enumerate(demo_loader):
         batch_size = image_tensors.size(0)
         with torch.no_grad():
             image = image_tensors.cuda()
@@ -81,22 +91,33 @@ def demo(opt):
             _, preds_index = preds.max(2)
             preds_str = converter.decode(preds_index, length_for_pred)
 
-        print('-' * 80)
-        print('image_path\tpredicted_labels')
-        print('-' * 80)
+        print(f'{idx}/{len(demo_data) / opt.batch_size}')
+
         for img_name, pred in zip(image_path_list, preds_str):
             if 'Attn' in opt.Prediction:
                 pred = pred[:pred.find('[s]')]  # prune after "end of sentence" token ([s])
 
-            print(f'{img_name}\t{pred}')
+            # for show
+
+            # write in json
+            name = f'{img_name}'.split('/')[-1].replace('gt', 'res').split('.')[0]
+            value = [{"transcription": f'{pred}'}]
+            result[name] = value
+
+    with open(f'{experiment_name}/result.json', 'w') as f:
+        json.dump(result, f)
+        print("writed finish...")
+
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--image_folder', default='demo_image/', help='path to image_folder which contains text images')
+    # parser.add_argument('--image_folder', default='demo_image/', help='path to image_folder which contains text images')
+    parser.add_argument('--image_folder', default='/home/deepblue/deepbluetwo/chenjun/data/test_part1_task2_images/', help='path to image_folder which contains text images')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
     parser.add_argument('--batch_size', type=int, default=192, help='input batch size')
     parser.add_argument('--saved_model', default='./saved_models/TPS-AsterRes-Bert-Bert_pred-Seed666/best_accuracy.pth', help="path to saved_model to evaluation")
+    # parser.add_argument('--saved_model', default='./model/TPS-ResNet-BiLSTM-Attn.pth', help="path to saved_model to evaluation")
     """ Data processing """
     parser.add_argument('--batch_max_length', type=int, default=25, help='maximum-label-length')
     parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')
@@ -116,6 +137,7 @@ if __name__ == '__main__':
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
     parser.add_argument('--position_dim', type=int, default=210, help='the length sequence out from cnn encoder')
+
     opt = parser.parse_args()
 
     """ vocab / character number configuration """

@@ -9,7 +9,7 @@ import torch.utils.data
 import numpy as np
 from nltk.metrics.distance import edit_distance
 
-from utils import CTCLabelConverter, AttnLabelConverter, Averager
+from utils import CTCLabelConverter, AttnLabelConverter, Averager, TransformerConverter
 from dataset import hierarchical_dataset, AlignCollate
 from model import Model
 
@@ -67,6 +67,7 @@ def benchmark_all_eval(model, criterion, converter, opt, calculate_infer_time=Fa
 
 def validation(model, criterion, evaluation_loader, converter, opt):
     """ validation or evaluation """
+    print('start validation')
     for p in model.parameters():
         p.requires_grad = False
 
@@ -79,13 +80,12 @@ def validation(model, criterion, evaluation_loader, converter, opt):
     for i, (image_tensors, labels) in enumerate(evaluation_loader):
         batch_size = image_tensors.size(0)
         length_of_data = length_of_data + batch_size
-        with torch.no_grad():
-            image = image_tensors.cuda()
-            # For max length prediction
-            length_for_pred = torch.cuda.IntTensor([opt.batch_max_length] * batch_size)
-            text_for_pred = torch.cuda.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0)
+        image = image_tensors.cuda()
+        # For max length prediction
+        length_for_pred = torch.cuda.IntTensor([opt.batch_max_length] * batch_size)
+        text_for_pred = torch.cuda.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0)
 
-            text_for_loss, length_for_loss = converter.encode(labels)
+        text_for_loss, length_for_loss = converter.encode(labels)
 
         start_time = time.time()
         if 'CTC' in opt.Prediction:
@@ -103,18 +103,19 @@ def validation(model, criterion, evaluation_loader, converter, opt):
             preds_str = converter.decode(preds_index.data, preds_size.data)
 
         elif 'Bert' in opt.Prediction:
-            pad_mask = None
-            preds = model(image, pad_mask)
-            forward_time = time.time() - start_time
+            with torch.no_grad():
+                pad_mask = None
+                preds = model(image, pad_mask)
+                forward_time = time.time() - start_time
 
-            cost = criterion(preds[0].view(-1, preds[0].shape[-1]), text_for_loss.contiguous().view(-1)) + \
-                   criterion(preds[1].view(-1, preds[1].shape[-1]), text_for_loss.contiguous().view(-1))
+                cost = criterion(preds[0].view(-1, preds[0].shape[-1]), text_for_loss.contiguous().view(-1)) + \
+                       criterion(preds[1].view(-1, preds[1].shape[-1]), text_for_loss.contiguous().view(-1))
 
-            # select max probabilty (greedy decoding) then decode index to character
-            _, preds_index = preds[1].max(2)
-            length_for_pred = torch.cuda.IntTensor([preds_index.size(-1)] * batch_size)
-            preds_str = converter.decode(preds_index, length_for_pred)
-            labels = converter.decode(text_for_loss, length_for_loss)
+                # select max probabilty (greedy decoding) then decode index to character
+                _, preds_index = preds[1].max(2)
+                length_for_pred = torch.cuda.IntTensor([preds_index.size(-1)] * batch_size)
+                preds_str = converter.decode(preds_index, length_for_pred)
+                labels = converter.decode(text_for_loss, length_for_loss)
 
         else:
             preds = model(image, text_for_pred, is_train=False)
@@ -154,9 +155,12 @@ def test(opt):
     """ model configuration """
     if 'CTC' in opt.Prediction:
         converter = CTCLabelConverter(opt.character)
+    elif 'Bert' in opt.Prediction:
+        converter = TransformerConverter(opt.character, opt.batch_max_length)
     else:
         converter = AttnLabelConverter(opt.character)
     opt.num_class = len(converter.character)
+    opt.alphabet_size = len(opt.character) + 2  # +2 for [UNK]+[EOS]
 
     if opt.rgb:
         opt.input_channel = 3
@@ -204,11 +208,11 @@ def test(opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--eval_data', required=True, help='path to evaluation dataset')
-    parser.add_argument('--benchmark_all_eval', action='store_true', help='evaluate 10 benchmark evaluation datasets')
+    parser.add_argument('--eval_data', default='/home/deepblue/deepbluetwo/chenjun/1_OCR/data/data_lmdb_release/evaluation', help='path to evaluation dataset')
+    parser.add_argument('--benchmark_all_eval', default=True, help='evaluate 10 benchmark evaluation datasets')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
     parser.add_argument('--batch_size', type=int, default=192, help='input batch size')
-    parser.add_argument('--saved_model', required=True, help="path to saved_model to evaluation")
+    parser.add_argument('--saved_model', default='./saved_models/TPS-AsterRes-Bert-Bert_pred-Seed666/best_accuracy.pth', help="path to saved_model to evaluation")
     """ Data processing """
     parser.add_argument('--batch_max_length', type=int, default=25, help='maximum-label-length')
     parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')
@@ -219,15 +223,16 @@ if __name__ == '__main__':
     parser.add_argument('--PAD', action='store_true', help='whether to keep ratio then pad for image resize')
     parser.add_argument('--data_filtering_off', action='store_true', help='for data_filtering_off mode')
     """ Model Architecture """
-    parser.add_argument('--Transformation', type=str, required=True, help='Transformation stage. None|TPS')
-    parser.add_argument('--FeatureExtraction', type=str, required=True, help='FeatureExtraction stage. VGG|RCNN|ResNet')
-    parser.add_argument('--SequenceModeling', type=str, required=True, help='SequenceModeling stage. None|BiLSTM')
-    parser.add_argument('--Prediction', type=str, required=True, help='Prediction stage. CTC|Attn')
+    parser.add_argument('--Transformation', type=str, default='TPS', help='Transformation stage. None|TPS')
+    parser.add_argument('--FeatureExtraction', type=str, default='AsterRes', help='FeatureExtraction stage. VGG|RCNN|ResNet|AsterRes')
+    parser.add_argument('--SequenceModeling', type=str, default='Bert', help='SequenceModeling stage. None|BiLSTM|Bert')
+    parser.add_argument('--Prediction', type=str, default='Bert_pred', help='Prediction stage. CTC|Attn|Bert_pred')
     parser.add_argument('--num_fiducial', type=int, default=20, help='number of fiducial points of TPS-STN')
     parser.add_argument('--input_channel', type=int, default=1, help='the number of input channel of Feature extractor')
-    parser.add_argument('--output_channel', type=int, default=512,
+    parser.add_argument('--output_channel', type=int, default=1024,
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
+    parser.add_argument('--position_dim', type=int, default=210, help='the length sequence out from cnn encoder')
 
     opt = parser.parse_args()
 

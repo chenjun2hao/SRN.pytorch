@@ -119,7 +119,7 @@ def train(opt):
     print("Optimizer:")
     print(optimizer)
     
-    lrScheduler = lr_scheduler.MultiStepLR(optimizer, [11, 17], gamma=0.5)                         # 减小学习速率
+    lrScheduler = lr_scheduler.MultiStepLR(optimizer, [1, 2, 3], gamma=0.5)                         # 减小学习速率
 
     """ final options """
     # print(opt)
@@ -142,9 +142,14 @@ def train(opt):
     best_accuracy = -1
     best_norm_ED = 1e+6
     i = start_iter
-    train_iter = iter(train_loader)
-    step_per_epoch = len(train_set) / opt.batch_size
-    print('一代有多少step:', step_per_epoch)
+    if opt.select_data == 'baidu':
+        train_iter = iter(train_loader)
+        step_per_epoch = len(train_set) / opt.batch_size
+        print('一代有多少step:', step_per_epoch)
+    else:
+        step_per_epoch = train_dataset.nums_samples / opt.batch_size
+        print('一代有多少step:', step_per_epoch)
+
     
     while(True):
         # try:
@@ -173,7 +178,7 @@ def train(opt):
 
         elif 'Bert' in opt.Prediction:
             pad_mask = None
-#             print(image.shape)
+            # print(image.shape)
             preds = model(image, pad_mask)
             cost = criterion(preds[0].view(-1, preds[0].shape[-1]), text.contiguous().view(-1)) + \
                    criterion(preds[1].view(-1, preds[1].shape[-1]), text.contiguous().view(-1))
@@ -254,23 +259,23 @@ def train(opt):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name', help='Where to store logs and models')
-    parser.add_argument('--train_data', default='./dataset/MJ', help='path to training dataset')
-    parser.add_argument('--valid_data', default='./dataset/MJ', help='path to validation dataset')
-    parser.add_argument('--manualSeed', type=int, default=1111, help='for random seed setting')
+    parser.add_argument('--train_data', default='/home/deepblue/deepbluetwo/chenjun/1_OCR/data/data_lmdb_release/training', help='path to training dataset')
+    parser.add_argument('--valid_data', default='/home/deepblue/deepbluetwo/chenjun/1_OCR/data/data_lmdb_release/validation', help='path to validation dataset')
+    parser.add_argument('--manualSeed', type=int, default=666, help='for random seed setting')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
-    parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
+    parser.add_argument('--batch_size', type=int, default=320, help='input batch size')
     parser.add_argument('--num_iter', type=int, default=300000, help='number of iterations to train for')
     parser.add_argument('--valInterval', type=int, default=4000, help='Interval between each validation')
-    parser.add_argument('--saveInterval', type=int, default=4000, help='Interval between each save')
+    parser.add_argument('--saveInterval', type=int, default=10000, help='Interval between each save')
     parser.add_argument('--disInterval', type=int, default=5, help='Interval betweet each show')
-    parser.add_argument('--continue_model', default='', help="path to model to continue training")
+    parser.add_argument('--continue_model', default='./saved_models/TPS-AsterRes-Bert-Bert_pred-Seed666/iter_50000.pth', help="path to model to continue training")
     parser.add_argument('--adam', default=True, help='Whether to use adam (default is Adadelta)')
     parser.add_argument('--ranger', default=False, help='use RAdam + Lookahead for optimizer')
-    parser.add_argument('--lr', type=float, default=0.001, help='learning rate, default=1.0 for Adadelta')
+    parser.add_argument('--lr', type=float, default=0.00005, help='learning rate, default=1.0 for Adadelta')
     parser.add_argument('--beta1', type=float, default=0.9, help='beta1 for adam. default=0.9')
     parser.add_argument('--rho', type=float, default=0.95, help='decay rate rho for Adadelta. default=0.95')
     parser.add_argument('--eps', type=float, default=1e-8, help='eps for Adadelta. default=1e-8')
-    parser.add_argument('--grad_clip', type=float, default=5, help='gradient clipping value. default=5')
+    parser.add_argument('--grad_clip', type=float, default=10, help='gradient clipping value. default=5')
 
     """ all baidu images """
     # parser.add_argument('--root', type=str, default='/root/shenlan/deepblue/1_OCR/data/train_images', help='the path of images')
@@ -285,32 +290,32 @@ if __name__ == '__main__':
     parser.add_argument('--baidu_alphabet', type=str, default='./dataset/BAIDU/baidu_alphabet.txt')
 
     
-    parser.add_argument('--max_seq', type=int, default=110, help='the maxium of the sequence length')
-    parser.add_argument('--position_dim', type=int, default=270, help='the length sequence out from cnn encoder')
+    parser.add_argument('--max_seq', type=int, default=25, help='the maxium of the sequence length')
+    parser.add_argument('--position_dim', type=int, default=210, help='the length sequence out from cnn encoder')
     parser.add_argument('--alphabet_size', type=int, default=None, help='the categry of the string')
     
-    parser.add_argument('--select_data', type=str, default='baidu',
+    parser.add_argument('--select_data', type=str, default='MJ-ST-ICDAR2019',
                         help='select training data (default is MJ-ST, which means MJ and ST used as training data)')
-    parser.add_argument('--batch_ratio', type=str, default='0.5',
+    parser.add_argument('--batch_ratio', type=str, default='0.3-0.3-0.4',
                         help='assign ratio for each selected data in the batch')
     parser.add_argument('--total_data_usage_ratio', type=str, default='1.0',
                         help='total data usage ratio, this ratio is multiplied to total number of data.')
     parser.add_argument('--batch_max_length', type=int, default=25, help='maximum-label-length')
     parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')
-    parser.add_argument('--imgW', type=int, default=128, help='the width of the input image')
+    parser.add_argument('--imgW', type=int, default=100, help='the width of the input image')
     parser.add_argument('--rgb', action='store_true', help='use rgb input')
     parser.add_argument('--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz', help='character label')
     parser.add_argument('--sensitive', action='store_true', help='for sensitive character mode')
     parser.add_argument('--PAD', action='store_true', help='whether tlabelo keep ratio then pad for image resize')
     parser.add_argument('--data_filtering_off', action='store_true', help='for data_filtering_off mode')
     """ Model Architecture """
-    parser.add_argument('--Transformation', type=str, default='None', help='Transformation stage. None|TPS')
+    parser.add_argument('--Transformation', type=str, default='TPS', help='Transformation stage. None|TPS')
     parser.add_argument('--FeatureExtraction', type=str, default='AsterRes', help='FeatureExtraction stage. VGG|RCNN|ResNet|AsterRes')
     parser.add_argument('--SequenceModeling', type=str, default='Bert', help='SequenceModeling stage. None|BiLSTM|Bert')
     parser.add_argument('--Prediction', type=str, default='Bert_pred', help='Prediction stage. CTC|Attn|Bert_pred')
     parser.add_argument('--num_fiducial', type=int, default=20, help='number of fiducial points of TPS-STN')
     parser.add_argument('--input_channel', type=int, default=1, help='the number of input channel of Feature extractor')
-    parser.add_argument('--output_channel', type=int, default=512,
+    parser.add_argument('--output_channel', type=int, default=1024,
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
 
@@ -332,7 +337,7 @@ if __name__ == '__main__':
         with open(opt.baidu_alphabet) as f:
             opt.character = f.readlines()[0]
 #         opt.character = opt.baidu_alphabet
-        opt.alphabet_size = len(opt.character) + 2              # +2 for [UNK]+[EOS]
+    opt.alphabet_size = len(opt.character) + 2              # +2 for [UNK]+[EOS]
 
     """ Seed and GPU setting """
     # print("Random Seed: ", opt.manualSeed)

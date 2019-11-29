@@ -131,8 +131,8 @@ class ResNet_ASTER2(nn.Module):
 
     self.inplanes = 32
     self.layer1 = self._make_layer(32,  3, [2, 2]) # [16, 50]
-    self.layer2 = self._make_layer(64,  4, [2, 2]) # [8, 25]
-    self.layer3 = self._make_layer(128, 6, [1, 1]) # [4, 25]
+    self.layer2 = self._make_layer(64,  4, [1, 1]) # [8, 25]
+    self.layer3 = self._make_layer(128, 6, [2, 2]) # [4, 25]
     self.layer4 = self._make_layer(256, 6, [1, 1]) # [2, 25]
     self.layer5 = self._make_layer(512, 3, [1, 1]) # [1, 25]
     
@@ -169,9 +169,9 @@ class ResNet_ASTER2(nn.Module):
     x1 = self.layer1(x0)
     x2 = self.layer2(x1)
     x3 = self.layer3(x2)
-    x3 = self.maxpool1(x3)
+    # x3 = self.maxpool1(x3)
     x4 = self.layer4(x3)
-    x4 = self.maxpool2(x4)
+    # x4 = self.maxpool2(x4)
     x5 = self.layer5(x4)
     
     x5 = self.relu(self.conv_bn(self.conv(x5)))

@@ -53,7 +53,7 @@ class Embeddings(nn.Module):
     "The embedding module from word, position and token_type embeddings."
     def __init__(self, cfg):
         super().__init__()
-        self.pos_embed = nn.Embedding(cfg.max_len, cfg.dim) # position embedding
+        self.pos_embed = nn.Embedding(cfg.p_dim, cfg.dim) # position embedding
         self.norm = LayerNorm(cfg)
         self.drop = nn.Dropout(cfg.p_drop_hidden)
 
@@ -256,14 +256,13 @@ class Config(object):
     p_drop_attn = 0.1
     p_drop_hidden = 0.1
     dim = 512                       # the encode output feature
-    max_len = 300                   # 展平的特征序列维度，用于位置编码
     attention_layers = 2                    # the layers of transformer
     n_heads = 8
-    dim_ff = 512 * 2                       # 位置前向传播的隐含层维度
+    dim_ff = 1024 * 2                       # 位置前向传播的隐含层维度
 
     ''' Parallel Attention Module '''
     dim_c = dim
-    max_vocab_size = 94             # 一张图片含有字符的最大长度
+    max_vocab_size = 26             # 一张图片含有字符的最大长度
 
     """ Two-stage Decoder """
     len_alphabet = 39               # 字符类别数量

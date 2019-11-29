@@ -25,7 +25,9 @@ def writeCache(env, cache):
             txn.put(k, v)
 
 
-def createDataset(inputPath='/home/yangna/deepblue/OCR/data/Baidu/train_images', gtFile='/home/yangna/deepblue/OCR/deep-text-recognition-benchmark/dataset/BAIDU/val.txt', outputPath='./dataset/BAIDU/train', checkValid=True):
+def createDataset(inputPath='/home/deepblue/deepbluetwo/chenjun/data/train_task2_images',
+                  gtFile='./dataset/ICDAR2019/icdar2019_train.txt',
+                  outputPath='/home/deepblue/deepbluetwo/chenjun/1_OCR/data/data_lmdb_release/training/ICDAR2019/train', checkValid=True):
     """
     Create LMDB dataset for training and evaluation.
     ARGS:
@@ -44,7 +46,7 @@ def createDataset(inputPath='/home/yangna/deepblue/OCR/data/Baidu/train_images',
 
     nSamples = len(datalist)
     for i in range(nSamples):
-        _, _, imagePath, label = datalist[i].strip('\n').split('\t')
+        imagePath, label = datalist[i].strip('\n').split('\t')
         imagePath = os.path.join(inputPath, imagePath)
 
         # # only use alphanumeric data

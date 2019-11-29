@@ -29,6 +29,7 @@ class Batch_Balanced_Dataset(object):
         _AlignCollate = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
         self.data_loader_list = []
         self.dataloader_iter_list = []
+        self.nums_samples = 0.
         batch_size_list = []
         Total_batch_size = 0
         for selected_d, batch_ratio_d in zip(opt.select_data, opt.batch_ratio):
@@ -42,6 +43,9 @@ class Batch_Balanced_Dataset(object):
             ex) opt.total_data_usage_ratio = 1 indicates 100% usage, and 0.2 indicates 20% usage.
             See 4.2 section in our paper.
             """
+
+            opt.total_data_usage_ratio = 1.0 if selected_d == 'ICDAR2019' else 0.5
+
             number_dataset = int(total_number_dataset * float(opt.total_data_usage_ratio))
             dataset_split = [number_dataset, total_number_dataset - number_dataset]
             indices = range(total_number_dataset)
@@ -52,6 +56,7 @@ class Batch_Balanced_Dataset(object):
             batch_size_list.append(str(_batch_size))
             Total_batch_size += _batch_size
 
+            self.nums_samples += len(_dataset)
             _data_loader = torch.utils.data.DataLoader(
                 _dataset, batch_size=_batch_size,
                 shuffle=True,
@@ -83,6 +88,9 @@ class Batch_Balanced_Dataset(object):
         balanced_batch_images = torch.cat(balanced_batch_images, 0)
 
         return balanced_batch_images, balanced_batch_texts
+
+    def __len__(self):
+        return self.nums_samples
 
 
 def hierarchical_dataset(root, opt, select_data='/'):
@@ -222,6 +230,10 @@ class RawDataset(Dataset):
                 img = Image.new('RGB', (self.opt.imgW, self.opt.imgH))
             else:
                 img = Image.new('L', (self.opt.imgW, self.opt.imgH))
+
+        w, h = img.size
+        if h > 2.0 * w:
+            img = img.transpose(Image.ROTATE_90)
 
         return (img, self.image_path_list[index])
 

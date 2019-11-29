@@ -65,7 +65,7 @@ class Model(nn.Module):
             cfg = Config()
             cfg.dim = opt.output_channel; cfg.dim_c = opt.output_channel              # 降维减少计算量
             cfg.p_dim = opt.position_dim                        # 一张图片cnn编码之后的特征序列长度
-            cfg.max_vocab_size = opt.max_seq + 1                # 一张图片中最多的文字个数, +1 for EOS
+            cfg.max_vocab_size = opt.batch_max_length + 1                # 一张图片中最多的文字个数, +1 for EOS
             cfg.len_alphabet = opt.alphabet_size                # 文字的类别个数
             self.SequenceModeling = Bert_Ocr(cfg)
         else:

@@ -14,7 +14,7 @@ import numpy as np
 import cv2
 import os
 import math
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 

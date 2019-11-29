@@ -2,6 +2,7 @@
 **/data_lmdb_release/*
 **/image_release/*
 **/result/*
+**/model/*
 *.mdb
 *.pth
 *.tar
