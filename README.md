@@ -9,7 +9,7 @@ At present, the accuracy of the paper cannot be achieved. And i borrowed code fr
 **model**
 <img src='./demo_image/model.png'> 
 
-**result**
+**result**  
 Test on ICDAR2019 with only 51.15%, will continue to improve.
 <img src='./demo_image/result.png'>
 
@@ -32,7 +32,7 @@ python demo.py --image_folder demo_image --saved_model <model_path/best_accuracy
 3. some examples  
 
 | demo images | [Bert_OCR](https://pan.baidu.com/s/1W1Uhw06kULzpVSl4lAP9zQ)  |   
-| ---         |     ---      |          --- |  
+| ---         |     ---      |
 | <img src="./demo_image/demo_1.png" width="300">    |   available   |    
 | <img src="./demo_image/demo_2.jpg" width="300">      |    shakesshack    |     
 | <img src="./demo_image/demo_3.png" width="300">  |   london   |  
@@ -44,9 +44,10 @@ python demo.py --image_folder demo_image --saved_model <model_path/best_accuracy
 | <img src="./demo_image/demo_9.jpg" width="300" height="100">    |   bally   |  
 | <img src="./demo_image/demo_10.jpg" width="300" height="100">      |    university    |   
 4. result on benchmark data sets  
-| IIIT5k_3000 | SVT | IC03_860 | IC03_867 | IC13_857 | IC13_1015 | IC15_1811 | IC15_2077 | SVTP | CUTE80 |  
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |  
-| 84.367 | 79.907 | 91.860 | 91.465 | 88.448 | 86.010 | 65.654 | 63.215 | 68.527 |81.185 |
+
+| IIIT5k_3000 | SVT   | IC03_860 | IC03_867 | IC13_857 | IC13_1015 | IC15_1811 | IC15_2077 | SVTP  | CUTE80 |  
+| ----------- | ------| ---------| ---------| ---------| --------- | ----------| --------- | ----  | ------ |  
+| 84.367      | 79.907| 91.860   | 91.465   | 88.448   | 86.010    | 65.654    | 63.215    | 68.527|81.185  |
 
 **total_accuracy: 78.423**
 
