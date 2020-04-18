@@ -25,6 +25,9 @@ from modules.resnet_aster import ResNet_ASTER, ResNet_ASTER2
 from modules.bert import Bert_Ocr
 from modules.bert import Config
 
+from modules.SRN_modules import Transforme_Encoder, SRN_Decoder
+from modules.resnet_fpn import ResNet_FPN
+
 
 class Model(nn.Module):
 
@@ -48,12 +51,15 @@ class Model(nn.Module):
             self.FeatureExtraction = RCNN_FeatureExtractor(opt.input_channel, opt.output_channel)
         elif opt.FeatureExtraction == 'ResNet':
             self.FeatureExtraction = ResNet_FeatureExtractor(opt.input_channel, opt.output_channel)
+            self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))  # Transform final (imgH/16-1) -> 1
         elif opt.FeatureExtraction == 'AsterRes':
             self.FeatureExtraction = ResNet_ASTER2(opt.input_channel, opt.output_channel)
+        elif opt.FeatureExtraction == 'ResnetFpn':
+            self.FeatureExtraction = ResNet_FPN()
         else:
             raise Exception('No FeatureExtraction module specified')
         self.FeatureExtraction_output = opt.output_channel  # int(imgH/16-1) * 512
-        self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))  # Transform final (imgH/16-1) -> 1
+        
 
         """ Sequence modeling"""
         if opt.SequenceModeling == 'BiLSTM':
@@ -68,6 +74,8 @@ class Model(nn.Module):
             cfg.max_vocab_size = opt.batch_max_length + 1                # 一张图片中最多的文字个数, +1 for EOS
             cfg.len_alphabet = opt.alphabet_size                # 文字的类别个数
             self.SequenceModeling = Bert_Ocr(cfg)
+        elif opt.SequenceModeling == 'SRN':
+            self.SequenceModeling = Transforme_Encoder()
         else:
             print('No SequenceModeling module specified')
             self.SequenceModeling_output = self.FeatureExtraction_output
@@ -79,6 +87,8 @@ class Model(nn.Module):
             self.Prediction = Attention(self.SequenceModeling_output, opt.hidden_size, opt.num_class)
         elif opt.Prediction == 'Bert_pred':
             pass
+        elif opt.Prediction == 'SRN':
+            self.Prediction = SRN_Decoder(n_position=opt.n_position)
         else:
             raise Exception('Prediction is neither CTC or Attn')
 
@@ -90,10 +100,10 @@ class Model(nn.Module):
 
         """ Feature extraction stage """
         visual_feature = self.FeatureExtraction(input)
-        if self.stages['Feat'] == 'AsterRes':
+        if self.stages['Feat'] == 'AsterRes' or self.stages['Feat'] == 'ResnetFpn':
             b, c, h, w = visual_feature.shape
             visual_feature = visual_feature.view(b, c, -1)
-            visual_feature = visual_feature.permute(0, 2, 1)
+            visual_feature = visual_feature.permute(0, 2, 1)    # batch, seq, feature
         else:
             visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 3, 1, 2))  # [b, c, h, w] -> [b, w, c, h]
             visual_feature = visual_feature.squeeze(3)
@@ -105,6 +115,8 @@ class Model(nn.Module):
         elif self.stages['Seq'] == 'Bert':
             pad_mask = text
             contextual_feature = self.SequenceModeling(visual_feature, pad_mask)
+        elif self.stages['Seq'] == 'SRN':
+            contextual_feature = self.SequenceModeling(visual_feature, src_mask=None)[0]
         else:
             contextual_feature = visual_feature  # for convenience. this is NOT contextually modeled by BiLSTM
 
@@ -114,6 +126,8 @@ class Model(nn.Module):
             prediction = self.Prediction(contextual_feature.contiguous())
         elif self.stages['Pred'] == 'Bert_pred':
             prediction = contextual_feature
+        elif self.stages['Pred'] == 'SRN':
+            prediction = self.Prediction(contextual_feature)
         else:
             prediction = self.Prediction(contextual_feature.contiguous(), text, is_train, batch_max_length=self.opt.batch_max_length)
         
