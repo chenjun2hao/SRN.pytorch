@@ -81,7 +81,7 @@ class ScaledDotProductAttention(nn.Module):
 
         if mask is not None:
             # print(mask.shape, attn.shape, v.shape)
-            attn = attn.masked_fill(mask, -np.inf)
+            attn = attn.masked_fill(mask, -1e9)
 
         attn = self.softmax(attn)       # 第3个维度为权重
         attn = self.dropout(attn)
@@ -296,17 +296,17 @@ class SRN_Decoder(nn.Module):
     n_position：cnn输出的特征序列长度
     整个有三个部分的输出
     '''
-    def __init__(self, n_dim=512, n_class=37, N_max_character=25, n_position=256 ):
+    def __init__(self, n_dim=512, n_class=37, N_max_character=25, n_position=256, GSRM_layer=4 ):
 
         super(SRN_Decoder, self).__init__()
         
         self.pvam = PVAM(N_max_character=N_max_character, n_position=n_position)
-        self.w_e = nn.Linear(n_dim, n_class)
+        self.w_e = nn.Linear(n_dim, n_class)    # output layer
 
-        self.GSRM = GSRM(n_class=n_class, PAD=n_class-1, n_dim=n_dim, n_position=N_max_character)
-        self.w_s = nn.Linear(n_dim, n_class)
+        self.GSRM = GSRM(n_class=n_class, PAD=n_class-1, n_dim=n_dim, n_position=N_max_character, n_layers=GSRM_layer)
+        self.w_s = nn.Linear(n_dim, n_class)    # output layer
 
-        self.w_f = nn.Linear(n_dim, n_class)
+        self.w_f = nn.Linear(n_dim, n_class)    # output layer
 
     def forward(self, cnn_feature ):
         '''cnn_feature: b,256,512 | the output from cnn'''
@@ -324,35 +324,41 @@ class SRN_Decoder(nn.Module):
         return e_out, s_out, f_out
 
 
-def cal_performance(preds, gold, smoothing=False, PAD=36):
+def cal_performance(preds, gold, mask=None, smoothing='1'):
     ''' Apply label smoothing if needed '''
 
     loss = 0.
     n_correct = 0
-    for pred in preds:
-        pred = pred.view(-1, pred.shape[-1])
-        tloss = cal_loss(pred, gold, smoothing, PAD)
+    weights = [1.0, 0.15, 2.0]
+    for ori_pred, weight in zip(preds, weights):
+        pred = ori_pred.view(-1, ori_pred.shape[-1])
+        # debug show
+        t_gold = gold.view(ori_pred.shape[0], -1)
+        t_pred_index = ori_pred.max(2)[1]
+
+        mask = mask.view(-1)
+        non_pad_mask = mask.ne(0) if mask is not None else None
+        tloss = cal_loss(pred, gold, non_pad_mask, smoothing)
         if torch.isnan(tloss):
             print('have nan loss')
             continue
         else:
-            loss += tloss
+            loss += tloss * weight
 
         pred = pred.max(1)[1]
         gold = gold.contiguous().view(-1)
-        non_pad_mask = gold.ne(PAD)
         n_correct = pred.eq(gold)
-        n_correct = n_correct.masked_select(non_pad_mask).sum().item()
+        n_correct = n_correct.masked_select(non_pad_mask).sum().item() if mask is not None else None
 
     return loss, n_correct
 
 
-def cal_loss(pred, gold, smoothing, PAD):
+def cal_loss(pred, gold, mask, smoothing):
     ''' Calculate cross entropy loss, apply label smoothing if needed. '''
 
     gold = gold.contiguous().view(-1)
 
-    if smoothing:
+    if smoothing=='0':
         eps = 0.1
         n_class = pred.size(1)
 
@@ -360,11 +366,18 @@ def cal_loss(pred, gold, smoothing, PAD):
         one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / (n_class - 1)
         log_prb = F.log_softmax(pred, dim=1)
 
-        non_pad_mask = gold.ne(PAD)
+        non_pad_mask = gold.ne(0)
         loss = -(one_hot * log_prb).sum(dim=1)
         loss = loss.masked_select(non_pad_mask).sum()  # average later
+    elif smoothing == '1':
+        if mask is not None:
+            loss = F.cross_entropy(pred, gold, reduction='none')
+            loss = loss.masked_select(mask)
+            loss = loss.sum() / mask.sum()
+        else:
+            loss = F.cross_entropy(pred, gold)
     else:
-        # loss = F.cross_entropy(pred, gold, ignore_index=Constants.PAD)
+        # loss = F.cross_entropy(pred, gold, ignore_index=PAD)
         loss = F.cross_entropy(pred, gold)
 
     return loss

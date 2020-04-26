@@ -75,7 +75,8 @@ class Model(nn.Module):
             cfg.len_alphabet = opt.alphabet_size                # 文字的类别个数
             self.SequenceModeling = Bert_Ocr(cfg)
         elif opt.SequenceModeling == 'SRN':
-            self.SequenceModeling = Transforme_Encoder()
+            self.SequenceModeling = Transforme_Encoder(n_layers=2, n_position=opt.position_dim)
+            self.SequenceModeling_output = 512
         else:
             print('No SequenceModeling module specified')
             self.SequenceModeling_output = self.FeatureExtraction_output
@@ -88,7 +89,7 @@ class Model(nn.Module):
         elif opt.Prediction == 'Bert_pred':
             pass
         elif opt.Prediction == 'SRN':
-            self.Prediction = SRN_Decoder(n_position=opt.n_position)
+            self.Prediction = SRN_Decoder(n_position=opt.position_dim)
         else:
             raise Exception('Prediction is neither CTC or Attn')
 

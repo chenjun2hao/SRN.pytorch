@@ -85,7 +85,10 @@ def validation(model, criterion, evaluation_loader, converter, opt):
         length_for_pred = torch.cuda.IntTensor([opt.batch_max_length] * batch_size)
         text_for_pred = torch.cuda.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0)
 
-        text_for_loss, length_for_loss = converter.encode(labels)
+        if 'SRN' in opt.Prediction:
+            text_for_loss, length_for_loss, srn_mask = converter.encode(labels)
+        else:
+            text_for_loss, length_for_loss = converter.encode(labels)
 
         start_time = time.time()
         if 'CTC' in opt.Prediction:
@@ -114,6 +117,17 @@ def validation(model, criterion, evaluation_loader, converter, opt):
                 # select max probabilty (greedy decoding) then decode index to character
                 _, preds_index = preds[1].max(2)
                 length_for_pred = torch.cuda.IntTensor([preds_index.size(-1)] * batch_size)
+                preds_str = converter.decode(preds_index, length_for_pred)
+                labels = converter.decode(text_for_loss, length_for_loss)
+        elif 'SRN' in opt.Prediction:
+            with torch.no_grad():
+                preds = model(image, None)
+                forward_time = time.time() - start_time
+
+                cost, n_correct = criterion(preds, text_for_loss, srn_mask)
+
+                # select max probabilty (greedy decoding) then decode index to character
+                _, preds_index = preds[2].max(2)
                 preds_str = converter.decode(preds_index, length_for_pred)
                 labels = converter.decode(text_for_loss, length_for_loss)
 

@@ -20,6 +20,7 @@ from test import validation
 from src.baidudataset import BAIDUset, BaiduCollate
 from modules.optimizer.ranger import Ranger
 from modules.SRN_modules import cal_performance
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def train(opt):
     """ dataset preparation """
@@ -124,7 +125,7 @@ def train(opt):
     print("Optimizer:")
     print(optimizer)
     
-    lrScheduler = lr_scheduler.MultiStepLR(optimizer, [5, 20, 30], gamma=0.5)                         # 减小学习速率
+    lrScheduler = lr_scheduler.MultiStepLR(optimizer, [20, 50, 100], gamma=0.5)                         # 减小学习速率
 
     """ final options """
     # print(opt)
@@ -172,14 +173,22 @@ def train(opt):
             image_tensors, labels = train_dataset.get_batch()
 
         image = image_tensors.cuda()
-        text, length = converter.encode(labels)
+        if 'SRN' in opt.Prediction:
+            text, length, srn_mask = converter.encode(labels)
+        else:
+            text, length = converter.encode(labels)
         batch_size = image.size(0)
 
         if 'CTC' in opt.Prediction:
             preds = model(image, text).log_softmax(2)
             preds_size = torch.IntTensor([preds.size(1)] * batch_size)
-            preds = preds.permute(1, 0, 2)  # to use CTCLoss format
-            cost = criterion(preds, text, preds_size, length)
+            preds = preds.permute(1, 0, 2)
+
+            # (ctc_a) For PyTorch 1.2.0 and 1.3.0. To avoid ctc_loss issue, disabled cudnn for the computation of the ctc_loss
+            # https://github.com/jpuigcerver/PyLaia/issues/16
+            torch.backends.cudnn.enabled = False
+            cost = criterion(preds, text.to(device), preds_size.to(device), length.to(device))
+            torch.backends.cudnn.enabled = True
 
         elif 'Bert' in opt.Prediction:
             pad_mask = None
@@ -190,7 +199,7 @@ def train(opt):
 
         elif 'SRN' in opt.Prediction:
             preds = model(image, None)
-            cost, n_correct = criterion(preds, text)
+            cost, n_correct = criterion(preds, text, srn_mask)
 
         else:
             preds = model(image, text[:, :-1]) # align with Attention.forward
@@ -218,7 +227,9 @@ def train(opt):
                 log.write(f'[{i}/{opt.num_iter}] Loss: {loss_avg.val():0.5f} elapsed_time: {elapsed_time:0.5f}\n')
                 loss_avg.reset()
 
-                model.eval()
+                # model.eval()
+                # valid_loss, current_accuracy, current_norm_ED, preds, labels, infer_time, length_of_data = validation(
+                # #     model, criterion, valid_loader, converter, opt)
                 valid_loss, current_accuracy, current_norm_ED, preds, labels, infer_time, length_of_data = validation(
                     model, criterion, valid_loader, converter, opt)
                 model.train()
@@ -272,15 +283,15 @@ if __name__ == '__main__':
     parser.add_argument('--valid_data', default='/home/deepblue/deepbluetwo/chenjun/1_OCR/data/data_lmdb_release/validation', help='path to validation dataset')
     parser.add_argument('--manualSeed', type=int, default=666, help='for random seed setting')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
-    parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
+    parser.add_argument('--batch_size', type=int, default=256, help='input batch size')
     parser.add_argument('--num_iter', type=int, default=300000, help='number of iterations to train for')
     parser.add_argument('--valInterval', type=int, default=4000, help='Interval between each validation')
     parser.add_argument('--saveInterval', type=int, default=10000, help='Interval between each save')
     parser.add_argument('--disInterval', type=int, default=5, help='Interval betweet each show')
-    parser.add_argument('--continue_model', default='', help="path to model to continue training")
-    parser.add_argument('--adam', default=False, help='Whether to use adam (default is Adadelta)')
-    parser.add_argument('--ranger', default=True, help='use RAdam + Lookahead for optimizer')
-    parser.add_argument('--lr', type=float, default=0.01, help='learning rate, default=1.0 for Adadelta')
+    parser.add_argument('--continue_model', default = './saved_models/None-ResnetFpn-SRN-SRN-Seed666/iter_90000.pth', help="path to model to continue training")
+    parser.add_argument('--adam', default=True, help='Whether to use adam (default is Adadelta)')
+    parser.add_argument('--ranger', default=False, help='use RAdam + Lookahead for optimizer')
+    parser.add_argument('--lr', type=float, default=0.0001, help='learning rate, default=1.0 for Adadelta')
     parser.add_argument('--beta1', type=float, default=0.9, help='beta1 for adam. default=0.9')
     parser.add_argument('--rho', type=float, default=0.95, help='decay rate rho for Adadelta. default=0.95')
     parser.add_argument('--eps', type=float, default=1e-8, help='eps for Adadelta. default=1e-8')
@@ -299,8 +310,8 @@ if __name__ == '__main__':
     parser.add_argument('--baidu_alphabet', type=str, default='./dataset/BAIDU/baidu_alphabet.txt')
 
     
-    parser.add_argument('--max_seq', type=int, default=25, help='the maxium of the sequence length')
-    parser.add_argument('--position_dim', type=int, default=210, help='the length sequence out from cnn encoder')
+    parser.add_argument('--max_seq', type=int, default=26, help='the maxium of the sequence length')
+    parser.add_argument('--position_dim', type=int, default=256, help='the length sequence out from cnn encoder')
     parser.add_argument('--alphabet_size', type=int, default=None, help='the categry of the string')
 
     '''SRN setting'''
@@ -308,7 +319,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_max_character', type=int, default=25, help='the max character of one image')
     parser.add_argument('--n_position', type=int, default=256, help='the sequence length of cnn out feature')
     
-    parser.add_argument('--select_data', type=str, default='ICDAR2019-ICDAR2019',
+    parser.add_argument('--select_data', type=str, default='MJ-ST',
                         help='select training data MJ-ST | MJ-ST-ICDAR2019 | baidu')
     parser.add_argument('--batch_ratio', type=str, default='0.5-0.5',
                         help='assign ratio for each selected data in the batch')
@@ -325,8 +336,8 @@ if __name__ == '__main__':
     """ Model Architecture """
     parser.add_argument('--Transformation', type=str, default='None', help='Transformation stage. None|TPS')
     parser.add_argument('--FeatureExtraction', type=str, default='ResnetFpn', help='FeatureExtraction stage. VGG|RCNN|ResNet|AsterRes|ResnetFpn')
-    parser.add_argument('--SequenceModeling', type=str, default='SRN', help='SequenceModeling stage. None|BiLSTM|Bert')
-    parser.add_argument('--Prediction', type=str, default='SRN', help='Prediction stage. CTC|Attn|Bert_pred')
+    parser.add_argument('--SequenceModeling', type=str, default='SRN', help='SequenceModeling stage. None|BiLSTM|Bert|SRN')
+    parser.add_argument('--Prediction', type=str, default='SRN', help='Prediction stage. CTC|Attn|Bert_pred|SRN')
     parser.add_argument('--num_fiducial', type=int, default=20, help='number of fiducial points of TPS-STN')
     parser.add_argument('--input_channel', type=int, default=1, help='the number of input channel of Feature extractor')
     parser.add_argument('--output_channel', type=int, default=512,

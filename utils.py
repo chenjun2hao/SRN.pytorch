@@ -176,18 +176,22 @@ class SRNConverter(object):
         length = [len(s) + 1 for s in text]  # +1 for [s] at end of sentence.
         # additional +1 for [GO] at first step. batch_text is padded with [GO] token after [s] token.
         batch_text = torch.cuda.LongTensor(len(text), batch_max_length).fill_(self.PAD)
+        mask_text = torch.cuda.LongTensor(len(text), batch_max_length).fill_(0)
         for i, t in enumerate(text):
             text = list(t)
             text = [self.dict[char] for char in text]
-            batch_text[i][0:len(text)] = torch.cuda.LongTensor(text)  # batch_text[:, 0] = [GO] token
-        return (batch_text, torch.cuda.IntTensor(length))
+            t_mask = [1 for i in range(len(text) + 1)]
+            batch_text[i][0:len(text)] = torch.cuda.LongTensor(text)  # batch_text[:, len_text+1] = [EOS] token
+            mask_text[i][0:len(text)+1] = torch.cuda.LongTensor(t_mask)
+        return (batch_text, torch.cuda.IntTensor(length), mask_text)
 
     def decode(self, text_index, length):
         """ convert text-index into text-label. """
         texts = []
         for index, l in enumerate(length):
             text = ''.join([self.character[i] for i in text_index[index, :]])
-            texts.append(text)
+            idx = text.find('$')
+            texts.append(text[:idx])
         return texts
 
 
