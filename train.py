@@ -19,7 +19,8 @@ from model import Model
 from test import validation
 from src.baidudataset import BAIDUset, BaiduCollate
 from modules.optimizer.ranger import Ranger
-from modules.SRN_modules import cal_performance
+# from modules.SRN_modules import cal_performance
+from modules.SRN_modules import cal_performance2 as cal_performance
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def train(opt):
@@ -174,7 +175,7 @@ def train(opt):
 
         image = image_tensors.cuda()
         if 'SRN' in opt.Prediction:
-            text, length, srn_mask = converter.encode(labels)
+            text, length = converter.encode(labels)
         else:
             text, length = converter.encode(labels)
         batch_size = image.size(0)
@@ -199,7 +200,7 @@ def train(opt):
 
         elif 'SRN' in opt.Prediction:
             preds = model(image, None)
-            cost, n_correct = criterion(preds, text, srn_mask)
+            cost, n_correct = criterion(preds, text, opt.SRN_PAD)
 
         else:
             preds = model(image, text[:, :-1]) # align with Attention.forward
@@ -227,7 +228,7 @@ def train(opt):
                 log.write(f'[{i}/{opt.num_iter}] Loss: {loss_avg.val():0.5f} elapsed_time: {elapsed_time:0.5f}\n')
                 loss_avg.reset()
 
-                # model.eval()
+                model.eval()
                 # valid_loss, current_accuracy, current_norm_ED, preds, labels, infer_time, length_of_data = validation(
                 # #     model, criterion, valid_loader, converter, opt)
                 valid_loss, current_accuracy, current_norm_ED, preds, labels, infer_time, length_of_data = validation(
@@ -283,12 +284,13 @@ if __name__ == '__main__':
     parser.add_argument('--valid_data', default='/home/deepblue/deepbluetwo/chenjun/1_OCR/data/data_lmdb_release/validation', help='path to validation dataset')
     parser.add_argument('--manualSeed', type=int, default=666, help='for random seed setting')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
-    parser.add_argument('--batch_size', type=int, default=256, help='input batch size')
+    parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
     parser.add_argument('--num_iter', type=int, default=300000, help='number of iterations to train for')
-    parser.add_argument('--valInterval', type=int, default=4000, help='Interval between each validation')
+    parser.add_argument('--valInterval', type=int, default=500, help='Interval between each validation')
     parser.add_argument('--saveInterval', type=int, default=10000, help='Interval between each save')
     parser.add_argument('--disInterval', type=int, default=5, help='Interval betweet each show')
-    parser.add_argument('--continue_model', default = './saved_models/None-ResnetFpn-SRN-SRN-Seed666/iter_90000.pth', help="path to model to continue training")
+    # parser.add_argument('--continue_model', default = '', help="path to model to continue training")
+    parser.add_argument('--continue_model', default='', help="path to model to continue training")
     parser.add_argument('--adam', default=True, help='Whether to use adam (default is Adadelta)')
     parser.add_argument('--ranger', default=False, help='use RAdam + Lookahead for optimizer')
     parser.add_argument('--lr', type=float, default=0.0001, help='learning rate, default=1.0 for Adadelta')
@@ -311,17 +313,17 @@ if __name__ == '__main__':
 
     
     parser.add_argument('--max_seq', type=int, default=26, help='the maxium of the sequence length')
-    parser.add_argument('--position_dim', type=int, default=256, help='the length sequence out from cnn encoder')
+    parser.add_argument('--position_dim', type=int, default=65, help='the length sequence out from cnn encoder,resnet:65,resnetfpn:256')
     parser.add_argument('--alphabet_size', type=int, default=None, help='the categry of the string')
 
     '''SRN setting'''
-    parser.add_argument('--SRN_PAD', type=int, default=36, help='refer to EOS')
+    parser.add_argument('--SRN_PAD', type=int, default=37, help='refer to EOS')
     parser.add_argument('--batch_max_character', type=int, default=25, help='the max character of one image')
     parser.add_argument('--n_position', type=int, default=256, help='the sequence length of cnn out feature')
     
-    parser.add_argument('--select_data', type=str, default='MJ-ST',
+    parser.add_argument('--select_data', type=str, default='ICDAR2019-ICDAR2019',
                         help='select training data MJ-ST | MJ-ST-ICDAR2019 | baidu')
-    parser.add_argument('--batch_ratio', type=str, default='0.5-0.5',
+    parser.add_argument('--batch_ratio', type=str, default='1.0-1.0',
                         help='assign ratio for each selected data in the batch')
     parser.add_argument('--total_data_usage_ratio', type=str, default='1.0',
                         help='total data usage ratio, this ratio is multiplied to total number of data.')
@@ -335,7 +337,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_filtering_off', action='store_true', help='for data_filtering_off mode')
     """ Model Architecture """
     parser.add_argument('--Transformation', type=str, default='None', help='Transformation stage. None|TPS')
-    parser.add_argument('--FeatureExtraction', type=str, default='ResnetFpn', help='FeatureExtraction stage. VGG|RCNN|ResNet|AsterRes|ResnetFpn')
+    parser.add_argument('--FeatureExtraction', type=str, default='ResNet', help='FeatureExtraction stage. VGG|RCNN|ResNet|AsterRes|ResnetFpn')
     parser.add_argument('--SequenceModeling', type=str, default='SRN', help='SequenceModeling stage. None|BiLSTM|Bert|SRN')
     parser.add_argument('--Prediction', type=str, default='SRN', help='Prediction stage. CTC|Attn|Bert_pred|SRN')
     parser.add_argument('--num_fiducial', type=int, default=20, help='number of fiducial points of TPS-STN')
