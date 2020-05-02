@@ -5,7 +5,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.utils.data
 
-from utils import CTCLabelConverter, AttnLabelConverter, TransformerConverter
+from utils import CTCLabelConverter, AttnLabelConverter, TransformerConverter, SRNConverter
 from dataset import RawDataset, AlignCollate
 from model import Model
 
@@ -16,6 +16,8 @@ def demo(opt):
         converter = CTCLabelConverter(opt.character)
     elif 'Bert' in opt.Prediction:
         converter = TransformerConverter(opt.character, opt.batch_max_length)
+    elif 'SRN' in opt.Prediction:
+        converter = SRNConverter(opt.character, PAD=36)
     else:
         converter = AttnLabelConverter(opt.character)
     opt.num_class = len(converter.character)
@@ -73,6 +75,15 @@ def demo(opt):
                 _, preds_index = preds[1].max(2)
                 length_for_pred = torch.cuda.IntTensor([preds_index.size(-1)] * batch_size)
                 preds_str = converter.decode(preds_index, length_for_pred)
+        
+        elif 'SRN' in opt.Prediction:
+            with torch.no_grad():
+                preds = model(image, None)
+
+                # select max probabilty (greedy decoding) then decode index to character
+                _, preds_index = preds[2].max(2)
+                length_for_pred = torch.cuda.IntTensor([preds_index.size(-1)] * batch_size)
+                preds_str = converter.decode(preds_index, length_for_pred)
 
         else:
             preds = model(image, text_for_pred, is_train=False)
@@ -95,27 +106,27 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--image_folder', default='demo_image/', help='path to image_folder which contains text images')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
-    parser.add_argument('--batch_size', type=int, default=192, help='input batch size')
-    parser.add_argument('--saved_model', default='./saved_models/TPS-AsterRes-Bert-Bert_pred-Seed666/best_accuracy.pth', help="path to saved_model to evaluation")
+    parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
+    parser.add_argument('--saved_model', default='./saved_models/None-ResNet-SRN-SRN-Seed666/best_accuracy.pth', help="path to saved_model to evaluation")
     """ Data processing """
     parser.add_argument('--batch_max_length', type=int, default=25, help='maximum-label-length')
     parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')
     parser.add_argument('--imgW', type=int, default=100, help='the width of the input image')
     parser.add_argument('--rgb', action='store_true', help='use rgb input')
-    parser.add_argument('--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz', help='character label')
+    parser.add_argument('--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz$', help='character label')
     parser.add_argument('--sensitive', action='store_true', help='for sensitive character mode')
     parser.add_argument('--PAD', action='store_true', help='whether to keep ratio then pad for image resize')
     """ Model Architecture """
-    parser.add_argument('--Transformation', type=str, default='TPS', help='Transformation stage. None|TPS')
-    parser.add_argument('--FeatureExtraction', type=str, default='AsterRes', help='FeatureExtraction stage. VGG|RCNN|ResNet|AsterRes')
-    parser.add_argument('--SequenceModeling', type=str, default='Bert', help='SequenceModeling stage. None|BiLSTM|Bert')
-    parser.add_argument('--Prediction', type=str, default='Bert_pred', help='Prediction stage. CTC|Attn|Bert_pred')
+    parser.add_argument('--Transformation', type=str, default='None', help='Transformation stage. None|TPS')
+    parser.add_argument('--FeatureExtraction', type=str, default='ResNet', help='FeatureExtraction stage. VGG|RCNN|ResNet|AsterRes')
+    parser.add_argument('--SequenceModeling', type=str, default='SRN', help='SequenceModeling stage. None|BiLSTM|Bert|SRN')
+    parser.add_argument('--Prediction', type=str, default='SRN', help='Prediction stage. CTC|Attn|Bert_pred|SRN')
     parser.add_argument('--num_fiducial', type=int, default=20, help='number of fiducial points of TPS-STN')
     parser.add_argument('--input_channel', type=int, default=1, help='the number of input channel of Feature extractor')
-    parser.add_argument('--output_channel', type=int, default=1024,
+    parser.add_argument('--output_channel', type=int, default=512,
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
-    parser.add_argument('--position_dim', type=int, default=210, help='the length sequence out from cnn encoder')
+    parser.add_argument('--position_dim', type=int, default=26, help='the length sequence out from cnn encoder,resnet:65;resnetfpn:256')
     opt = parser.parse_args()
 
     """ vocab / character number configuration """

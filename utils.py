@@ -190,9 +190,8 @@ class SRNConverter(object):
         texts = []
         for index, l in enumerate(length):
             text = ''.join([self.character[i] for i in text_index[index, :]])
-            # idx = text.find('$')
-            text = text.replace('$','')
-            texts.append(text)
+            idx = text.find('$')
+            texts.append(text[:idx])
         return texts
 
 

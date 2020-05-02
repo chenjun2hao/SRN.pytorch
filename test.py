@@ -9,9 +9,10 @@ import torch.utils.data
 import numpy as np
 from nltk.metrics.distance import edit_distance
 
-from utils import CTCLabelConverter, AttnLabelConverter, Averager, TransformerConverter
+from utils import CTCLabelConverter, AttnLabelConverter, Averager, TransformerConverter, SRNConverter
 from dataset import hierarchical_dataset, AlignCollate
 from model import Model
+from modules.SRN_modules import cal_performance2
 
 
 def benchmark_all_eval(model, criterion, converter, opt, calculate_infer_time=False):
@@ -76,6 +77,7 @@ def validation(model, criterion, evaluation_loader, converter, opt):
     length_of_data = 0
     infer_time = 0
     valid_loss_avg = Averager()
+    model.eval()
 
     for i, (image_tensors, labels) in enumerate(evaluation_loader):
         batch_size = image_tensors.size(0)
@@ -119,6 +121,7 @@ def validation(model, criterion, evaluation_loader, converter, opt):
                 length_for_pred = torch.cuda.IntTensor([preds_index.size(-1)] * batch_size)
                 preds_str = converter.decode(preds_index, length_for_pred)
                 labels = converter.decode(text_for_loss, length_for_loss)
+
         elif 'SRN' in opt.Prediction:
             with torch.no_grad():
                 preds = model(image, None)
@@ -171,6 +174,8 @@ def test(opt):
         converter = CTCLabelConverter(opt.character)
     elif 'Bert' in opt.Prediction:
         converter = TransformerConverter(opt.character, opt.batch_max_length)
+    elif 'SRN' in opt.Prediction:
+        converter = SRNConverter(opt.character, 36)
     else:
         converter = AttnLabelConverter(opt.character)
     opt.num_class = len(converter.character)
@@ -197,6 +202,9 @@ def test(opt):
     """ setup loss """
     if 'CTC' in opt.Prediction:
         criterion = torch.nn.CTCLoss(zero_infinity=True).cuda()
+    elif 'SRN' in opt.Prediction:
+        # criterion = torch.nn.CrossEntropyLoss().cuda()
+        criterion = cal_performance2
     else:
         criterion = torch.nn.CrossEntropyLoss(ignore_index=0).cuda()  # ignore [GO] token = ignore index 0
 
@@ -226,27 +234,29 @@ if __name__ == '__main__':
     parser.add_argument('--benchmark_all_eval', default=True, help='evaluate 10 benchmark evaluation datasets')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
     parser.add_argument('--batch_size', type=int, default=192, help='input batch size')
-    parser.add_argument('--saved_model', default='./saved_models/TPS-AsterRes-Bert-Bert_pred-Seed666/best_accuracy.pth', help="path to saved_model to evaluation")
+    parser.add_argument('--saved_model', default='./saved_models/None-ResNet-SRN-SRN-Seed666/best_accuracy.pth', help="path to saved_model to evaluation")
     """ Data processing """
     parser.add_argument('--batch_max_length', type=int, default=25, help='maximum-label-length')
     parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')
     parser.add_argument('--imgW', type=int, default=100, help='the width of the input image')
     parser.add_argument('--rgb', action='store_true', help='use rgb input')
-    parser.add_argument('--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz', help='character label')
+    parser.add_argument('--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz$', help='character label')
     parser.add_argument('--sensitive', action='store_true', help='for sensitive character mode')
     parser.add_argument('--PAD', action='store_true', help='whether to keep ratio then pad for image resize')
     parser.add_argument('--data_filtering_off', action='store_true', help='for data_filtering_off mode')
     """ Model Architecture """
-    parser.add_argument('--Transformation', type=str, default='TPS', help='Transformation stage. None|TPS')
-    parser.add_argument('--FeatureExtraction', type=str, default='AsterRes', help='FeatureExtraction stage. VGG|RCNN|ResNet|AsterRes')
-    parser.add_argument('--SequenceModeling', type=str, default='Bert', help='SequenceModeling stage. None|BiLSTM|Bert')
-    parser.add_argument('--Prediction', type=str, default='Bert_pred', help='Prediction stage. CTC|Attn|Bert_pred')
+    parser.add_argument('--Transformation', type=str, default='None', help='Transformation stage. None|TPS')
+    parser.add_argument('--FeatureExtraction', type=str, default='ResNet', help='FeatureExtraction stage. VGG|RCNN|ResNet|AsterRes')
+    parser.add_argument('--SequenceModeling', type=str, default='SRN', help='SequenceModeling stage. None|BiLSTM|Bert')
+    parser.add_argument('--Prediction', type=str, default='SRN', help='Prediction stage. CTC|Attn|Bert_pred')
     parser.add_argument('--num_fiducial', type=int, default=20, help='number of fiducial points of TPS-STN')
     parser.add_argument('--input_channel', type=int, default=1, help='the number of input channel of Feature extractor')
-    parser.add_argument('--output_channel', type=int, default=1024,
+    parser.add_argument('--output_channel', type=int, default=512,
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
-    parser.add_argument('--position_dim', type=int, default=210, help='the length sequence out from cnn encoder')
+    parser.add_argument('--position_dim', type=int, default=26, help='the length sequence out from cnn encoder,resnet:65;resnetfpn:256')
+    """ SRN-setting"""
+    parser.add_argument('--SRN_PAD', type=int, default=36, help='cross entropy ignore index')
 
     opt = parser.parse_args()
 
