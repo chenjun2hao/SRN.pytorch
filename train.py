@@ -200,7 +200,7 @@ def train(opt):
 
         elif 'SRN' in opt.Prediction:
             preds = model(image, None)
-            cost, n_correct = criterion(preds, text, opt.SRN_PAD)
+            cost, train_correct = criterion(preds, text, opt.SRN_PAD)
 
         else:
             preds = model(image, text[:, :-1]) # align with Attention.forward
@@ -285,12 +285,12 @@ if __name__ == '__main__':
     parser.add_argument('--manualSeed', type=int, default=666, help='for random seed setting')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
     parser.add_argument('--batch_size', type=int, default=256, help='input batch size')
-    parser.add_argument('--num_iter', type=int, default=300000, help='number of iterations to train for')
+    parser.add_argument('--num_iter', type=int, default=150000, help='number of iterations to train for')
     parser.add_argument('--valInterval', type=int, default=5000, help='Interval between each validation')
     parser.add_argument('--saveInterval', type=int, default=5000, help='Interval between each save')
     parser.add_argument('--disInterval', type=int, default=5, help='Interval betweet each show')
-    parser.add_argument('--continue_model', default = '', help="path to model to continue training")
-    # parser.add_argument('--continue_model', default='./saved_models/None-ResNet-SRN-SRN-Seed666/iter_60000.pth', help="path to model to continue training")
+    # parser.add_argument('--continue_model', default = '', help="path to model to continue training")
+    parser.add_argument('--continue_model', default='./saved_models/None-ResNet-SRN-SRN-Seed666/iter_145000.pth', help="path to model to continue training")
     parser.add_argument('--adam', default=True, help='Whether to use adam (default is Adadelta)')
     parser.add_argument('--ranger', default=False, help='use RAdam + Lookahead for optimizer')
     parser.add_argument('--lr', type=float, default=0.0001, help='learning rate, default=1.0 for Adadelta')
@@ -311,14 +311,14 @@ if __name__ == '__main__':
     parser.add_argument('--val_csv', type=str, default='./dataset/BAIDU/small_train.txt', help='the val samples')
     parser.add_argument('--baidu_alphabet', type=str, default='./dataset/BAIDU/baidu_alphabet.txt')
 
-    
+    '''bert_ocr setting'''
     parser.add_argument('--max_seq', type=int, default=26, help='the maxium of the sequence length')
     parser.add_argument('--position_dim', type=int, default=26, help='the length sequence out from cnn encoder,resnet:65,resnetfpn:256')
-    parser.add_argument('--alphabet_size', type=int, default=None, help='the categry of the string')
 
     '''SRN setting'''
-    parser.add_argument('--SRN_PAD', type=int, default=36, help='refer to EOS')
+    parser.add_argument('--SRN_PAD', type=int, default=37, help='refer to EOS')
     parser.add_argument('--batch_max_character', type=int, default=25, help='the max character of one image')
+    parser.add_argument('--alphabet_size', type=int, default=None, help='the categry of the string')
     
     parser.add_argument('--select_data', type=str, default='MJ-ST',
                         help='select training data MJ-ST | MJ-ST-ICDAR2019 | baidu')
@@ -330,7 +330,7 @@ if __name__ == '__main__':
     parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')
     parser.add_argument('--imgW', type=int, default=100, help='the width of the input image')
     parser.add_argument('--rgb', action='store_true', help='use rgb input')
-    parser.add_argument('--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz$', help='character label')
+    parser.add_argument('--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz$#', help='character label')
     parser.add_argument('--sensitive', action='store_true', help='for sensitive character mode')
     parser.add_argument('--PAD', action='store_true', help='whether tlabelo keep ratio then pad for image resize')
     parser.add_argument('--data_filtering_off', action='store_true', help='for data_filtering_off mode')
@@ -363,7 +363,7 @@ if __name__ == '__main__':
         with open(opt.baidu_alphabet) as f:
             opt.character = f.readlines()[0]
 #         opt.character = opt.baidu_alphabet
-    opt.alphabet_size = len(opt.character) + 2              # +2 for [UNK]+[EOS]
+    opt.alphabet_size = len(opt.character)              # +2 for [UNK]+[EOS]
 
     '''SRN setting'''
     opt.SRN_PAD = len(opt.character) - 1

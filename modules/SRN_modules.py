@@ -282,7 +282,7 @@ class GSRM(nn.Module):
         e = self.argmax_embed(e_argmax)  # b,25,512
 
         e_mask = get_pad_mask(e_argmax, self.PAD)   # b,25,1
-        s = self.transformer_units(e, None)   # b,25,512
+        s = self.transformer_units(e, e_mask)   # b,25,512
 
         return s
 
@@ -383,7 +383,7 @@ def cal_loss(pred, gold, mask, smoothing):
     return loss
 
 
-def cal_performance2(preds, gold, PAD):
+def cal_performance2(preds, gold, PAD, smoothing='1'):
     ''' Apply label smoothing if needed '''
 
     loss = 0.
@@ -395,7 +395,7 @@ def cal_performance2(preds, gold, PAD):
         t_gold = gold.view(ori_pred.shape[0], -1)
         t_pred_index = ori_pred.max(2)[1]
 
-        tloss = cal_loss2(pred, gold, PAD, smoothing='2')
+        tloss = cal_loss2(pred, gold, PAD, smoothing=smoothing)
         if torch.isnan(tloss):
             print('have nan loss')
             continue

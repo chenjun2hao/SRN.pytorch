@@ -89,7 +89,7 @@ class Model(nn.Module):
         elif opt.Prediction == 'Bert_pred':
             pass
         elif opt.Prediction == 'SRN':
-            self.Prediction = SRN_Decoder(n_position=opt.position_dim)
+            self.Prediction = SRN_Decoder(n_position=opt.position_dim, n_class=opt.alphabet_size)
         else:
             raise Exception('Prediction is neither CTC or Attn')
 

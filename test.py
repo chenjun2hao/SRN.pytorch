@@ -127,7 +127,7 @@ def validation(model, criterion, evaluation_loader, converter, opt):
                 preds = model(image, None)
                 forward_time = time.time() - start_time
 
-                cost, n_correct = criterion(preds, text_for_loss, opt.SRN_PAD)
+                cost, train_correct = criterion(preds, text_for_loss, opt.SRN_PAD)
 
                 # select max probabilty (greedy decoding) then decode index to character
                 _, preds_index = preds[2].max(2)
@@ -175,11 +175,10 @@ def test(opt):
     elif 'Bert' in opt.Prediction:
         converter = TransformerConverter(opt.character, opt.batch_max_length)
     elif 'SRN' in opt.Prediction:
-        converter = SRNConverter(opt.character, 36)
+        converter = SRNConverter(opt.character, opt.SRN_PAD)
     else:
         converter = AttnLabelConverter(opt.character)
     opt.num_class = len(converter.character)
-    opt.alphabet_size = len(opt.character) + 2  # +2 for [UNK]+[EOS]
 
     if opt.rgb:
         opt.input_channel = 3
@@ -240,7 +239,7 @@ if __name__ == '__main__':
     parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')
     parser.add_argument('--imgW', type=int, default=100, help='the width of the input image')
     parser.add_argument('--rgb', action='store_true', help='use rgb input')
-    parser.add_argument('--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz$', help='character label')
+    parser.add_argument('--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz$#', help='character label')
     parser.add_argument('--sensitive', action='store_true', help='for sensitive character mode')
     parser.add_argument('--PAD', action='store_true', help='whether to keep ratio then pad for image resize')
     parser.add_argument('--data_filtering_off', action='store_true', help='for data_filtering_off mode')
@@ -255,15 +254,16 @@ if __name__ == '__main__':
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
     parser.add_argument('--position_dim', type=int, default=26, help='the length sequence out from cnn encoder,resnet:65;resnetfpn:256')
-    """ SRN-setting"""
-    parser.add_argument('--SRN_PAD', type=int, default=36, help='cross entropy ignore index')
 
+    parser.add_argument('--SRN_PAD', type=int, default=36, help='the pad character for srn')
     opt = parser.parse_args()
 
     """ vocab / character number configuration """
     if opt.sensitive:
         opt.character = string.printable[:-6]  # same with ASTER setting (use 94 char).
 
+    opt.alphabet_size = len(opt.character)  #
+    opt.SRN_PAD = len(opt.character)-1
     cudnn.benchmark = True
     cudnn.deterministic = True
     opt.num_gpu = torch.cuda.device_count()

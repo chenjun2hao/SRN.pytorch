@@ -178,7 +178,7 @@ class SRNConverter(object):
         batch_text = torch.cuda.LongTensor(len(text), batch_max_length).fill_(self.PAD)
         # mask_text = torch.cuda.LongTensor(len(text), batch_max_length).fill_(0)
         for i, t in enumerate(text):
-            # text = list(t + self.character[-2])
+            t = list(t + self.character[-2])
             text = [self.dict[char] for char in t]
             # t_mask = [1 for i in range(len(text) + 1)]
             batch_text[i][0:len(text)] = torch.cuda.LongTensor(text)  # batch_text[:, len_text+1] = [EOS] token
