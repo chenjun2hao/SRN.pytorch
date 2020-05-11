@@ -180,6 +180,36 @@ class EncoderLayer(nn.Module):
         return enc_output, enc_slf_attn
 
 
+class Torch_transformer_encoder(nn.Module):
+    '''
+        use pytorch transformer for sequence learning
+
+    '''
+    def __init__(self, d_word_vec=512, n_layers=2, n_head=8, d_model=512, dim_feedforward=1024, n_position=256):
+        super(Torch_transformer_encoder, self).__init__()
+
+        self.position_enc = PositionalEncoding(d_word_vec, n_position=n_position)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=n_head, dim_feedforward=dim_feedforward)
+        self.layer_norm = nn.LayerNorm(d_model)
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=n_layers, norm=self.layer_norm)
+        self.dropout = nn.Dropout(p=0.1)
+
+    def forward(self, cnn_feature, src_mask=None, return_attns=False):
+        enc_slf_attn_list = []
+
+        # -- Forward
+        enc_output = self.dropout(self.position_enc(cnn_feature))  # position embeding
+
+        enc_output = self.encoder(enc_output)
+
+        enc_output = self.layer_norm(enc_output)
+
+        if return_attns:
+            return enc_output, enc_slf_attn_list
+        return enc_output,
+
+
+
 class Transforme_Encoder(nn.Module):
     ''' to capture the global spatial dependencies'''
     '''
@@ -239,6 +269,7 @@ class PVAM(nn.Module):
         
         self.w0 = nn.Linear(N_max_character, n_position)
         self.wv = nn.Linear(n_dim, n_dim)
+        # first linear(512,25)
         self.we = nn.Linear(n_dim, N_max_character)
 
         self.active = nn.Tanh()
@@ -251,7 +282,9 @@ class PVAM(nn.Module):
 
         t = self.w0(reading_order_embed.permute(0,2,1))     # b,512,256
         t = self.active(t.permute(0,2,1) + self.wv(enc_output))     # b,256,512
+        # first linear(512,25)
         attn = self.we(t)  # b,256,25
+
         attn = self.softmax(attn.permute(0,2,1))  # b,25,256
 
         g_output = torch.bmm(attn, enc_output)  # b,25,512
@@ -273,16 +306,17 @@ class GSRM(nn.Module):
         self.argmax_embed = nn.Embedding(n_class, n_dim)
 
         self.transformer_units = Transforme_Encoder(n_layers=n_layers, n_position=n_position)      # for global context information
+        # self.transformer_units = Torch_transformer_encoder(n_layers=n_layers, n_position=n_position)
 
     def forward(self, e_out):  
         '''
-        e_out: b,25,37 | the output from PVAM
+        e_out: b,25,37 | the output from PVAM3
         '''    
         e_argmax = e_out.argmax(dim=-1)     # b, 25
         e = self.argmax_embed(e_argmax)  # b,25,512
 
         e_mask = get_pad_mask(e_argmax, self.PAD)   # b,25,1
-        s = self.transformer_units(e, e_mask)   # b,25,512
+        s = self.transformer_units(e, None)   # b,25,512
 
         return s
 

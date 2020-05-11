@@ -44,7 +44,7 @@ class Batch_Balanced_Dataset(object):
             See 4.2 section in our paper.
             """
 
-            opt.total_data_usage_ratio = 1.0 if selected_d == 'ICDAR2019' else 0.5
+            # opt.total_data_usage_ratio = 1.0 if selected_d == 'ICDAR2019' else 0.5
 
             number_dataset = int(total_number_dataset * float(opt.total_data_usage_ratio))
             dataset_split = [number_dataset, total_number_dataset - number_dataset]
@@ -142,8 +142,8 @@ class LmdbDataset(Dataset):
                     label = txn.get(label_key).decode('utf-8')
 
                     if len(label) >= self.opt.batch_max_length or len(label) == 0:
-                        # print(f'The length of the label is longer than max_length: length
-                        # {len(label)}, {label} in dataset {self.root}')
+                        # print(f'The length of the label is longer than max_length: length \
+                        #     {len(label)}, {label} in dataset {self.root}')
                         continue
 
                     # By default, images containing characters which are not in opt.character are filtered.

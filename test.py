@@ -77,7 +77,6 @@ def validation(model, criterion, evaluation_loader, converter, opt):
     length_of_data = 0
     infer_time = 0
     valid_loss_avg = Averager()
-    model.eval()
 
     for i, (image_tensors, labels) in enumerate(evaluation_loader):
         batch_size = image_tensors.size(0)
@@ -158,6 +157,9 @@ def validation(model, criterion, evaluation_loader, converter, opt):
 
             if pred == gt:
                 n_correct += 1
+            else:
+                temp = 1
+
             if len(gt) == 0:
                 norm_ED += 1
             else:
@@ -233,7 +235,7 @@ if __name__ == '__main__':
     parser.add_argument('--benchmark_all_eval', default=True, help='evaluate 10 benchmark evaluation datasets')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
     parser.add_argument('--batch_size', type=int, default=192, help='input batch size')
-    parser.add_argument('--saved_model', default='./saved_models/None-ResNet-SRN-SRN-Seed666/best_accuracy.pth', help="path to saved_model to evaluation")
+    parser.add_argument('--saved_model', default='./saved_models/None-ResNet-SRN-SRN-Seed666/iter_210000.pth', help="path to saved_model to evaluation")
     """ Data processing """
     parser.add_argument('--batch_max_length', type=int, default=25, help='maximum-label-length')
     parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')

@@ -126,7 +126,7 @@ def train(opt):
     print("Optimizer:")
     print(optimizer)
     
-    lrScheduler = lr_scheduler.MultiStepLR(optimizer, [20, 50, 100], gamma=0.5)                         # 减小学习速率
+    lrScheduler = lr_scheduler.MultiStepLR(optimizer, [2, 5, 10], gamma=0.1)                         # 减小学习速率
 
     """ final options """
     # print(opt)
@@ -228,7 +228,7 @@ def train(opt):
                 log.write(f'[{i}/{opt.num_iter}] Loss: {loss_avg.val():0.5f} elapsed_time: {elapsed_time:0.5f}\n')
                 loss_avg.reset()
 
-                model.eval()
+                # model.eval()
                 # valid_loss, current_accuracy, current_norm_ED, preds, labels, infer_time, length_of_data = validation(
                 # #     model, criterion, valid_loader, converter, opt)
                 valid_loss, current_accuracy, current_norm_ED, preds, labels, infer_time, length_of_data = validation(
@@ -284,13 +284,13 @@ if __name__ == '__main__':
     parser.add_argument('--valid_data', default='/home/deepblue/deepbluetwo/chenjun/1_OCR/data/data_lmdb_release/validation', help='path to validation dataset')
     parser.add_argument('--manualSeed', type=int, default=666, help='for random seed setting')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
-    parser.add_argument('--batch_size', type=int, default=256, help='input batch size')
+    parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
     parser.add_argument('--num_iter', type=int, default=150000, help='number of iterations to train for')
-    parser.add_argument('--valInterval', type=int, default=5000, help='Interval between each validation')
+    parser.add_argument('--valInterval', type=int, default=50, help='Interval between each validation')
     parser.add_argument('--saveInterval', type=int, default=5000, help='Interval between each save')
     parser.add_argument('--disInterval', type=int, default=5, help='Interval betweet each show')
     # parser.add_argument('--continue_model', default = '', help="path to model to continue training")
-    parser.add_argument('--continue_model', default='./saved_models/None-ResNet-SRN-SRN-Seed666/iter_145000.pth', help="path to model to continue training")
+    # parser.add_argument('--continue_model', default='./saved_models/None-ResNet-SRN-SRN-Seed666/iter_150000.pth', help="path to model to continue training")
     parser.add_argument('--adam', default=True, help='Whether to use adam (default is Adadelta)')
     parser.add_argument('--ranger', default=False, help='use RAdam + Lookahead for optimizer')
     parser.add_argument('--lr', type=float, default=0.0001, help='learning rate, default=1.0 for Adadelta')
@@ -320,9 +320,9 @@ if __name__ == '__main__':
     parser.add_argument('--batch_max_character', type=int, default=25, help='the max character of one image')
     parser.add_argument('--alphabet_size', type=int, default=None, help='the categry of the string')
     
-    parser.add_argument('--select_data', type=str, default='MJ-ST',
+    parser.add_argument('--select_data', type=str, default='ICDAR2019-ICDAR2019',
                         help='select training data MJ-ST | MJ-ST-ICDAR2019 | baidu')
-    parser.add_argument('--batch_ratio', type=str, default='0.5-0.5',
+    parser.add_argument('--batch_ratio', type=str, default='1.0-1.0',
                         help='assign ratio for each selected data in the batch')
     parser.add_argument('--total_data_usage_ratio', type=str, default='1.0',
                         help='total data usage ratio, this ratio is multiplied to total number of data.')
@@ -378,8 +378,8 @@ if __name__ == '__main__':
 
     cudnn.benchmark = True
     cudnn.deterministic = True
-#     opt.num_gpu = torch.cuda.device_count()
-    opt.num_gpu = 1
+    opt.num_gpu = torch.cuda.device_count()
+#     opt.num_gpu = 1
     # print('device count', opt.num_gpu)
     if opt.num_gpu > 1:
         print('------ Use multi-GPU setting ------')

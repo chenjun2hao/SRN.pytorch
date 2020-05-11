@@ -20,12 +20,12 @@ from modules.transformation import TPS_SpatialTransformerNetwork
 from modules.feature_extraction import VGG_FeatureExtractor, RCNN_FeatureExtractor, ResNet_FeatureExtractor
 from modules.sequence_modeling import BidirectionalLSTM
 from modules.prediction import Attention
-from modules.resnet_aster import ResNet_ASTER, ResNet_ASTER2
+from modules.resnet_aster import ResNet_ASTER
 
 from modules.bert import Bert_Ocr
 from modules.bert import Config
 
-from modules.SRN_modules import Transforme_Encoder, SRN_Decoder
+from modules.SRN_modules import Transforme_Encoder, SRN_Decoder, Torch_transformer_encoder
 from modules.resnet_fpn import ResNet_FPN
 
 
@@ -53,7 +53,7 @@ class Model(nn.Module):
             self.FeatureExtraction = ResNet_FeatureExtractor(opt.input_channel, opt.output_channel)
             self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))  # Transform final (imgH/16-1) -> 1
         elif opt.FeatureExtraction == 'AsterRes':
-            self.FeatureExtraction = ResNet_ASTER2(opt.input_channel, opt.output_channel)
+            self.FeatureExtraction = ResNet_ASTER(opt.input_channel, opt.output_channel)
         elif opt.FeatureExtraction == 'ResnetFpn':
             self.FeatureExtraction = ResNet_FPN()
         else:
@@ -76,6 +76,7 @@ class Model(nn.Module):
             self.SequenceModeling = Bert_Ocr(cfg)
         elif opt.SequenceModeling == 'SRN':
             self.SequenceModeling = Transforme_Encoder(n_layers=2, n_position=opt.position_dim)
+            # self.SequenceModeling = Torch_transformer_encoder(n_layers=2, n_position=opt.position_dim)
             self.SequenceModeling_output = 512
         else:
             print('No SequenceModeling module specified')
@@ -101,9 +102,11 @@ class Model(nn.Module):
 
         """ Feature extraction stage """
         visual_feature = self.FeatureExtraction(input)
-        if self.stages['Feat'] == 'AsterRes' or self.stages['Feat'] == 'ResnetFpn':
+        # if self.stages['Feat'] == 'AsterRes' or self.stages['Feat'] == 'ResnetFpn':
+        if self.stages['Feat'] == 'AsterRes' or self.stages['Feat'] == 'ResnetFpn' or self.stages['Feat'] == 'ResNet':
             b, c, h, w = visual_feature.shape
-            visual_feature = visual_feature.view(b, c, -1)
+            visual_feature = visual_feature.permute(0, 1, 3, 2)
+            visual_feature = visual_feature.contiguous().view(b, c, -1)
             visual_feature = visual_feature.permute(0, 2, 1)    # batch, seq, feature
         else:
             visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 3, 1, 2))  # [b, c, h, w] -> [b, w, c, h]
