@@ -90,7 +90,7 @@ class Model(nn.Module):
         elif opt.Prediction == 'Bert_pred':
             pass
         elif opt.Prediction == 'SRN':
-            self.Prediction = SRN_Decoder(n_position=opt.position_dim, n_class=opt.alphabet_size)
+            self.Prediction = SRN_Decoder(n_position=opt.position_dim, N_max_character=opt.batch_max_character + 1, n_class=opt.alphabet_size)
         else:
             raise Exception('Prediction is neither CTC or Attn')
 
@@ -103,7 +103,7 @@ class Model(nn.Module):
         """ Feature extraction stage """
         visual_feature = self.FeatureExtraction(input)
         # if self.stages['Feat'] == 'AsterRes' or self.stages['Feat'] == 'ResnetFpn':
-        if self.stages['Feat'] == 'AsterRes' or self.stages['Feat'] == 'ResnetFpn' or self.stages['Feat'] == 'ResNet':
+        if self.stages['Feat'] == 'AsterRes' or self.stages['Feat'] == 'ResnetFpn':
             b, c, h, w = visual_feature.shape
             visual_feature = visual_feature.permute(0, 1, 3, 2)
             visual_feature = visual_feature.contiguous().view(b, c, -1)

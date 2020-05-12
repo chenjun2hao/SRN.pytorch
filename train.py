@@ -126,7 +126,7 @@ def train(opt):
     print("Optimizer:")
     print(optimizer)
     
-    lrScheduler = lr_scheduler.MultiStepLR(optimizer, [2, 5, 10], gamma=0.1)                         # 减小学习速率
+    lrScheduler = lr_scheduler.MultiStepLR(optimizer, [2, 4, 5], gamma=0.1)                         # 减小学习速率
 
     """ final options """
     # print(opt)
@@ -266,8 +266,9 @@ def train(opt):
         if i == opt.num_iter:
             print('end the training')
             sys.exit()
-            
-        if i > 0 and i % step_per_epoch == 0:                # 调整学习速率
+
+        if i > 0 and i % int(step_per_epoch) == 0:                # 调整学习速率
+            print('down the learn rate 1/10')
             lrScheduler.step()
             
         i += 1
@@ -283,13 +284,13 @@ if __name__ == '__main__':
     parser.add_argument('--train_data', default='/home/deepblue/deepbluetwo/chenjun/1_OCR/data/data_lmdb_release/training', help='path to training dataset')
     parser.add_argument('--valid_data', default='/home/deepblue/deepbluetwo/chenjun/1_OCR/data/data_lmdb_release/validation', help='path to validation dataset')
     parser.add_argument('--manualSeed', type=int, default=666, help='for random seed setting')
-    parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
-    parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
-    parser.add_argument('--num_iter', type=int, default=150000, help='number of iterations to train for')
-    parser.add_argument('--valInterval', type=int, default=50, help='Interval between each validation')
+    parser.add_argument('--workers', type=int, help='number of data loading workers', default=6)
+    parser.add_argument('--batch_size', type=int, default=256, help='input batch size')
+    parser.add_argument('--num_iter', type=int, default=300000, help='number of iterations to train for')
+    parser.add_argument('--valInterval', type=int, default=5000, help='Interval between each validation')
     parser.add_argument('--saveInterval', type=int, default=5000, help='Interval between each save')
     parser.add_argument('--disInterval', type=int, default=5, help='Interval betweet each show')
-    # parser.add_argument('--continue_model', default = '', help="path to model to continue training")
+    parser.add_argument('--continue_model', default = '', help="path to model to continue training")
     # parser.add_argument('--continue_model', default='./saved_models/None-ResNet-SRN-SRN-Seed666/iter_150000.pth', help="path to model to continue training")
     parser.add_argument('--adam', default=True, help='Whether to use adam (default is Adadelta)')
     parser.add_argument('--ranger', default=False, help='use RAdam + Lookahead for optimizer')
@@ -320,7 +321,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_max_character', type=int, default=25, help='the max character of one image')
     parser.add_argument('--alphabet_size', type=int, default=None, help='the categry of the string')
     
-    parser.add_argument('--select_data', type=str, default='ICDAR2019-ICDAR2019',
+    parser.add_argument('--select_data', type=str, default='MJ-ST',
                         help='select training data MJ-ST | MJ-ST-ICDAR2019 | baidu')
     parser.add_argument('--batch_ratio', type=str, default='1.0-1.0',
                         help='assign ratio for each selected data in the batch')

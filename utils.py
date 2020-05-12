@@ -175,7 +175,7 @@ class SRNConverter(object):
         """
         length = [len(s) + 1 for s in text]  # +1 for [s] at end of sentence.
         # additional +1 for [GO] at first step. batch_text is padded with [GO] token after [s] token.
-        batch_text = torch.cuda.LongTensor(len(text), batch_max_length).fill_(self.PAD)
+        batch_text = torch.cuda.LongTensor(len(text), batch_max_length + 1).fill_(self.PAD)
         # mask_text = torch.cuda.LongTensor(len(text), batch_max_length).fill_(0)
         for i, t in enumerate(text):
             t = list(t + self.character[-2])

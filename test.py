@@ -234,8 +234,8 @@ if __name__ == '__main__':
     parser.add_argument('--eval_data', default='/home/deepblue/deepbluetwo/chenjun/1_OCR/data/data_lmdb_release/evaluation', help='path to evaluation dataset')
     parser.add_argument('--benchmark_all_eval', default=True, help='evaluate 10 benchmark evaluation datasets')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
-    parser.add_argument('--batch_size', type=int, default=192, help='input batch size')
-    parser.add_argument('--saved_model', default='./saved_models/None-ResNet-SRN-SRN-Seed666/iter_210000.pth', help="path to saved_model to evaluation")
+    parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
+    parser.add_argument('--saved_model', default='./saved_models/None-ResNet-SRN-SRN-Seed666/iter_65000.pth', help="path to saved_model to evaluation")
     """ Data processing """
     parser.add_argument('--batch_max_length', type=int, default=25, help='maximum-label-length')
     parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')
@@ -258,6 +258,7 @@ if __name__ == '__main__':
     parser.add_argument('--position_dim', type=int, default=26, help='the length sequence out from cnn encoder,resnet:65;resnetfpn:256')
 
     parser.add_argument('--SRN_PAD', type=int, default=36, help='the pad character for srn')
+    parser.add_argument('--batch_max_character', type=int, default=25, help='the max sequence length')
     opt = parser.parse_args()
 
     """ vocab / character number configuration """
